@@ -91,7 +91,7 @@ def get_input_linux(caption, hidden):
         'zenity',
         '--entry',
         '--title=\"Wunderbar\"',
-        '--text={caption}'
+        f'--text={caption}'
     ]
     if hidden:
         zenity_args.append('--hide-text')
