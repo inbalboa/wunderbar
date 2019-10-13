@@ -87,29 +87,33 @@ def wunder_icon_white():
 
 
 def get_input_linux(caption, hidden):
-    zenity_bin = 'zenity'
-    hidden_text = '--hide-text' if hidden else ''
-    zenity_params = f'--entry --title=\"Wunderbar\" --text={caption}'
-    task = subprocess.Popen(
-        f'{zenity_bin} {zenity_params} {hidden_text}',
-        shell=True,
-        stdout=subprocess.PIPE
-    )
-    answer_text = task.stdout.read()
+    zenity_args = [
+        'zenity',
+        '--entry',
+        '--title=\"Wunderbar\"',
+        '--text={caption}'
+    ]
+    if hidden:
+        zenity_args.append('--hide-text')
+    task = subprocess.Popen(zenity_args, stdout=subprocess.PIPE)
     task.wait()
+    answer_text, _ = task.communicate()
 
     return answer_text.decode().replace('\n', '').replace('\r', '').strip()
 
 
 def get_input_darwin(caption, hidden):
-    osa_bin = 'osascript'
     hidden_text = 'with hidden answer' if hidden else ''
-    osa_params = f"-e 'Tell application \"System Events\" to display dialog {caption} default answer \"\" with title \"Wunderbar\" with icon 1 {hidden_text}' -e 'text returned of result'"
-    task = subprocess.Popen(
-        f'{osa_bin} {osa_params}', shell=True, stdout=subprocess.PIPE
+    osa_args = (
+        'osascript',
+        '-e',
+        f'Tell application \"System Events\" to display dialog {caption} default answer \"\" with title \"Wunderbar\" with icon 1 {hidden_text}',
+        '-e',
+        'text returned of result'
     )
-    answer_text = task.stdout.read()
+    task = subprocess.Popen(osa_args, stdout=subprocess.PIPE)
     task.wait()
+    answer_text, _ = task.communicate()
 
     return answer_text.decode().replace('\n', '').replace('\r', '').strip()
 
@@ -123,16 +127,17 @@ def get_input(caption, hidden=False):
 
 
 def choose_list_linux(lists):
-    zenity_bin = 'zenity'
     lst = ['\"{title}: {id}\"'.format_map(l) for l in lists]
-    lst_str = ' '.join(lst)
-    print(lst_str)
-    zenity_params = f'--list --title=\"Wunderbar\" --column="Lists" {lst_str}'
-    task = subprocess.Popen(
-        f'{zenity_bin} {zenity_params}', shell=True, stdout=subprocess.PIPE
-    )
-    answer_text = task.stdout.read()
+    zenity_args = [
+        'zenity',
+        '--list',
+        '--title=\"Wunderbar\"',
+        '--column="Lists"'
+    ]
+    zenity_args += lst
+    task = subprocess.Popen(zenity_args, stdout=subprocess.PIPE)
     task.wait()
+    answer_text, _ = task.communicate()
     answer = answer_text.decode().strip()
     if answer == 'false':
         return None
@@ -142,15 +147,16 @@ def choose_list_linux(lists):
 
 
 def choose_list_darwin(lists):
-    osa_bin = 'osascript'
     lst = ['\"{title}: {id}\"'.format_map(l) for l in lists]
     lst_str = ','.join(lst)
-    osa_params = f"-e 'Tell application \"System Events\" to choose from list {{{lst_str}}} with prompt \"Select your Wunder list:\"'"
-    task = subprocess.Popen(
-        f'{osa_bin} {osa_params}', shell=True, stdout=subprocess.PIPE
+    osa_args = (
+        'osascript',
+        '-e',
+        f'Tell application \"System Events\" to choose from list {{{lst_str}}} with prompt \"Select your Wunder list:\"'
     )
-    answer_text = task.stdout.read()
+    task = subprocess.Popen(osa_args, stdout=subprocess.PIPE)
     task.wait()
+    answer_text, _ = task.communicate()
     answer = answer_text.decode().strip()
     if answer == 'false':
         return None
@@ -202,7 +208,7 @@ def get_list(file_path):
     try:
         with open(Path(file_path).expanduser()) as f:
             return json.load(f)
-    except:
+    except IOError:
         return {}
 
 
