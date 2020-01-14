@@ -1,13 +1,13 @@
 #!/usr/bin/env -S PATH="/usr/local/bin:${PATH}" python3
 
-# <bitbar.title>Wunderbar</bitbar.title>
+# <bitbar.title>Todobar</bitbar.title>
 # <bitbar.version>v1.0.0</bitbar.version>
 # <bitbar.author>Sergey Shlyapugin</bitbar.author>
 # <bitbar.author.github>inbalboa</bitbar.author.github>
-# <bitbar.desc>Wunderlist client.</bitbar.desc>
+# <bitbar.desc>Microsoft To Do client.</bitbar.desc>
 # <bitbar.image>https://i.imgur.com/rij855z.png</bitbar.image>
-# <bitbar.dependencies>python3,wunderpy2,keyring</bitbar.dependencies>
-# <bitbar.abouturl>https://github.com/inbalboa/wunderbar</bitbar.abouturl>
+# <bitbar.dependencies>python3,pymtodo,keyring</bitbar.dependencies>
+# <bitbar.abouturl>https://github.com/inbalboa/todobar</bitbar.abouturl>
 
 import json
 import subprocess
@@ -15,8 +15,9 @@ import sys
 from argparse import ArgumentParser
 from dataclasses import dataclass
 from pathlib import Path
+from pymtodo import ToDoConnection
 
-APPNAME = 'wunderbar'
+APPNAME = 'todobar'
 CMD = sys.argv[0]
 LIST_DIR = '~/Library/Caches' if sys.platform == 'darwin' else '~/.cache'
 LIST_PATH = f'{LIST_DIR}/{APPNAME}/list.json'
@@ -26,39 +27,38 @@ LIST_PATH = f'{LIST_DIR}/{APPNAME}/list.json'
 class Task:
     id: str
     title: str
-    revision: int
     cmd: str
 
     def __str__(self):
         return (
-            '{title}|bash={cmd} param1=--complete param2={id_} param3=--revision param4={rev} terminal=false refresh=true'
+            '{title}|bash={cmd} param1=--complete param2={id_} terminal=false refresh=true'
             '\n'
-            '➖ {title}|alternate=true bash={cmd} param1=--delete param2={id_} param3=--revision param4={rev} terminal=false refresh=true'
-        ).format(title=self.title.replace('|', '—').strip(), cmd=self.cmd, id_=self.id, rev=self.revision)
+            '➖ {title}|alternate=true bash={cmd} param1=--delete param2={id_} terminal=false refresh=true'
+        ).format(title=self.title.replace('|', '—').strip(), cmd=self.cmd, id_=self.id)
 
 
 def get_secrets():
-    access_token = keyring.get_password(APPNAME, 'access_token')
-    client_id = keyring.get_password(APPNAME, 'client_id')
-    return access_token, client_id
+    mail = keyring.get_password(APPNAME, 'mail')
+    password = keyring.get_password(APPNAME, 'password')
+    return mail, password
 
 
 def update_secrets():
-    access_token = get_input(
-        '\"Enter your access token from\\n\\"https://developer.wunderlist.com/apps/\\"\"',
+    mail = get_input(
+        '\"Enter your mail\"',
         hidden=True
     )
-    if not access_token:
+    if not mail:
         return None, None
-    keyring.set_password(APPNAME, 'access_token', access_token)
+    keyring.set_password(APPNAME, 'mail', mail)
 
-    client_id = get_input(
-        '\"Enter your client id from\\n\\"https://developer.wunderlist.com/apps/\\"\"',
+    password = get_input(
+        '\"Enter your password\"',
         hidden=True
     )
-    if not client_id:
+    if not password:
         return None, None
-    keyring.set_password(APPNAME, 'client_id', client_id)
+    keyring.set_password(APPNAME, 'password', password)
 
 
 def parse_args():
@@ -66,7 +66,6 @@ def parse_args():
     parser.add_argument('-a', '--add', type=str, help='add task to specified list')
     parser.add_argument('-c', '--complete', type=str, help='complete task')
     parser.add_argument('-d', '--delete', type=str, help='delete task')
-    parser.add_argument('-r', '--revision', type=str, help='task revision')
     parser.add_argument('-l', '--switch', action='store_true', help='switch a list')
     parser.add_argument('-s', '--secrets', action='store_true', help='update secrets')
     args = parser.parse_args()
@@ -89,7 +88,7 @@ def get_input_linux(caption, hidden):
     zenity_args = [
         'zenity',
         '--entry',
-        '--title=\"Wunderbar\"',
+        '--title=\"Todobar\"',
         f'--text={caption}'
     ]
     if hidden:
@@ -106,7 +105,7 @@ def get_input_darwin(caption, hidden):
     osa_args = (
         'osascript',
         '-e',
-        f'Tell application \"System Events\" to display dialog {caption} default answer \"\" with title \"Wunderbar\" with icon 1 {hidden_text}',
+        f'Tell application \"System Events\" to display dialog {caption} default answer \"\" with title \"Todobar\" with icon 1 {hidden_text}',
         '-e',
         'text returned of result'
     )
@@ -126,11 +125,11 @@ def get_input(caption, hidden=False):
 
 
 def choose_list_linux(lists):
-    lst = ['\"{title}: {id}\"'.format_map(l) for l in lists]
+    lst = [f'\"{l.name}: {l.id}\"' for l in lists]
     zenity_args = [
         'zenity',
         '--list',
-        '--title=\"Wunderbar\"',
+        '--title=\"Todobar\"',
         '--column="Lists"'
     ]
     zenity_args += lst
@@ -146,12 +145,12 @@ def choose_list_linux(lists):
 
 
 def choose_list_darwin(lists):
-    lst = ['\"{title}: {id}\"'.format_map(l) for l in lists]
+    lst = [f'\"{l.name}: {l.id}\"' for l in lists]
     lst_str = ','.join(lst)
     osa_args = (
         'osascript',
         '-e',
-        f'Tell application \"System Events\" to choose from list {{{lst_str}}} with prompt \"Select your Wunder list:\"'
+        f'Tell application \"System Events\" to choose from list {{{lst_str}}} with prompt \"Select your To Do list:\"'
     )
     task = subprocess.Popen(osa_args, stdout=subprocess.PIPE)
     task.wait()
@@ -182,7 +181,7 @@ def print_refresh():
     print('---')
     print('Refresh|refresh=true')
     print('---')
-    print('Open Wunderlist|href="https://wunderlist.com/" refresh=false')
+    print('Open To Do|href="https://to-do.microsoft.com" refresh=false')
     print(
         f'Re-authorize...|alternate=true bash={CMD} param1=--secrets terminal=false refresh=true'
     )
@@ -196,10 +195,10 @@ def print_secrets_error():
 def print_import_error():
     print('!|color=#ECB935')
     print('---')
-    print('Need to install wunderpy2 or/and keyring packages')
+    print('Need to install pymtodo and/or keyring packages')
     print('---')
     print(
-        'Install (with PIP)...|bash=pip3 param1=install param2=-U param3=--user param4=wunderpy2 param5=keyring terminal=true refresh=true'
+        'Install (with PIP)...|bash=pip3 param1=install param2=-U param3=--user param4=pymtodo param5=keyring terminal=true refresh=true'
     )
 
 
@@ -218,45 +217,58 @@ def set_list(file_path, json_data):
         json.dump(json_data, f)
 
 
+def get_list_by_id(todo_client, list_id):
+    for l in todo_client.lists:
+        if l.id == list_id:
+            return l
+
 def main():
     parsed_args = parse_args()
 
     try:
-        global keyring, WunderApi, WunderlistError
+        global keyring, ToDoConnection
         import keyring
-        from wunderpy2 import WunderApi, WunderlistError
+        from pymtodo import ToDoConnection        
     except ImportError:
         print_import_error()
         print_refresh()
         return
 
-    access_token, client_id = get_secrets()
-    wl_client = WunderApi().get_client(access_token, client_id)
+    todo_client = ToDoConnection()
 
-    if parsed_args.add:
-        new_task = get_input('\"Create new task to Wunderlist:\"')
-        if new_task:
-            wl_client.create_task(parsed_args.add, new_task)
-        return
-    elif parsed_args.complete:
-        wl_client.update_task(
-            parsed_args.complete, parsed_args.revision, completed=True
-        )
-        return
-    elif parsed_args.delete:
-        wl_client.delete_task(parsed_args.delete, parsed_args.revision)
-        return
-    elif parsed_args.switch:
+    if parsed_args.switch:
         set_list(LIST_PATH, {})
         return
     elif parsed_args.secrets:
         update_secrets()
         return
 
+    mail, password = get_secrets()
+    try:
+        todo_client.connect(email=mail, password=password)
+    except Exception as e:
+        print_error(e)
+        print_secrets_error()
+        print_refresh()
+        return
+
+    if parsed_args.add:
+        new_task = get_input('\"Create new task to To Do:\"')
+        if new_task:
+            get_list_by_id(todo_client, parsed_args.add).create_task(new_task)
+        return
+    elif parsed_args.complete:
+        # todo_client._complete_task(parsed_args.complete)
+        todo_client._delete_task(parsed_args.complete)
+        return
+    elif parsed_args.delete:
+        todo_client._delete_task(parsed_args.delete)
+        return
+
     list_id = get_list(LIST_PATH).get('id')
     try:
         if not list_id:
-            raw_lists = wl_client.get_lists()
+            raw_lists = todo_client.lists
             if not raw_lists:
                 return
             list_id = choose_list(raw_lists)
@@ -265,8 +277,8 @@ def main():
                 print_refresh()
                 return
         set_list(LIST_PATH, {'id': list_id})
-        raw_list = wl_client.get_list(list_id)
-        raw_tasks = wl_client.get_tasks(list_id)
+        # raw_list = todo_client.lists(list_id)
+        raw_tasks = todo_client._get_tasks(list_id)
     except Exception as e:
         print_error(e)
         print_secrets_error()
@@ -274,13 +286,15 @@ def main():
         return
 
     adapted_tasks = [
-        Task(id=t['id'], title=t['title'], revision=t['revision'], cmd=CMD)
+        Task(id=t.id, title=t.subject, cmd=CMD)
         for t in raw_tasks
+        if not t.completed_date_time
     ]
     print(f'|templateImage={wunder_icon()}')
     print('---')
+    curr_list = get_list_by_id(todo_client, list_id)
     print(
-        f'{raw_list["title"]}: {len(adapted_tasks) or "no"} {"task" if len(adapted_tasks) == 1 else "tasks"} | href=https://wunderlist.com/#/lists/{list_id}'
+        f'{curr_list.name}: {len(adapted_tasks) or "no"} {"task" if len(adapted_tasks) == 1 else "tasks"} | href=https://wunderlist.com/#/lists/{list_id}'
     )
     print('---')
     print(*adapted_tasks, sep='\n')
