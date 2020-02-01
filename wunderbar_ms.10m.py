@@ -125,7 +125,7 @@ def get_input(caption, hidden=False):
 
 
 def choose_list_linux(lists):
-    lst = [f'\"{l.name}: {l.id}\"' for l in lists]
+    lst = [f'{l.name}: {l.id}' for l in lists]
     zenity_args = [
         'zenity',
         '--list',
@@ -294,7 +294,7 @@ def main():
     print('---')
     curr_list = get_list_by_id(todo_client, list_id)
     print(
-        f'{curr_list.name}: {len(adapted_tasks) or "no"} {"task" if len(adapted_tasks) == 1 else "tasks"} | href=https://wunderlist.com/#/lists/{list_id}'
+        f'{curr_list.name}: {len(adapted_tasks) or "no"} {"task" if len(adapted_tasks) == 1 else "tasks"} | href=https://to-do.microsoft.com/lists/{list_id}'
     )
     print('---')
     print(*adapted_tasks, sep='\n')
